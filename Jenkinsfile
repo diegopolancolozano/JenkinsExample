@@ -5,23 +5,32 @@ pipeline {
         stage('Obtener código') {
             steps { checkout scm }
         }
-        stage('Preparar dependencias') {
+        stage('Construir imagen') {
+            steps { sh 'docker compose build' }
+        }
+        stage('Pruebas') {
+            steps { sh 'docker compose run --rm --no-deps tienda python -m unittest discover -v' }
+        }
+        stage('Preparar base de datos') {
+            steps { sh 'docker compose run --rm --no-deps tienda python init_db.py' }
+        }
+        stage('Desplegar aplicación') {
+            steps { sh 'docker compose up -d --no-build tienda' }
+        }
+        stage('Verificar despliegue') {
             steps {
-                sh 'python3 --version'
-                sh 'python3 -m venv .venv'
-                sh '.venv/bin/python -m pip install -r requirements.txt'
-            }
-        }
-        stage('Validar aplicación') {
-            steps { sh '.venv/bin/python -m py_compile app.py' }
-        }
-        stage('Ejecutar pruebas') {
-            steps { sh '.venv/bin/python -m unittest discover -v' }
-        }
-        stage('Empaquetar') {
-            steps {
-                sh '.venv/bin/python -m zipfile -c aplicacion.zip app.py requirements.txt templates README.md'
-                archiveArtifacts artifacts: 'aplicacion.zip', fingerprint: true
+                sh '''#!/bin/sh
+                set -eu
+                for intento in 1 2 3 4 5 6 7 8 9 10; do
+                    if docker compose exec -T tienda python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=2)"; then
+                        echo "Aplicación disponible."
+                        exit 0
+                    fi
+                    sleep 2
+                done
+                echo "La aplicación no respondió."
+                exit 1
+                '''
             }
         }
     }

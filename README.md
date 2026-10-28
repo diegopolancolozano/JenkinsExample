@@ -1,10 +1,18 @@
-# JenkinsExample
+# JenkinsExample: tienda con Flask y SQLite
 
-Aplicación web Flask para demostrar CI y entrega de un artefacto con Jenkins. Incluye dos funciones: sumar números y comprobar si una frase es un palíndromo. La aplicación no guarda información y el pipeline no despliega automáticamente a un servidor.
+Una tienda pequeña para demostrar integración y despliegue continuo: permite agregar productos y consultar el catálogo. SQLite guarda los productos en un archivo; no hay un servidor de base de datos separado. El volumen Docker conserva el archivo entre reinicios y despliegues normales.
 
-## Ejecutar la aplicación
+## Ejecutar con Docker
 
-Se necesita Python 3 con soporte para `venv` y acceso a PyPI para instalar Flask.
+Con Docker Desktop iniciado y Compose disponible:
+
+```bash
+docker compose up -d --build
+```
+
+Abra http://localhost:5000, agregue un producto y actualice la página. Para detener la aplicación sin borrar la base: `docker compose down`. No use `docker compose down -v` si desea conservar los datos.
+
+## Ejecutar sin Docker
 
 ```bash
 python3 -m venv .venv
@@ -13,30 +21,29 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Abra `http://127.0.0.1:5000`. En Windows, cree el entorno con `py -m venv .venv` y actívelo con `.venv\Scripts\Activate.ps1`.
-
-## Ejecutar pruebas
+En Windows puede usar `py -m venv .venv` y `.venv\Scripts\Activate.ps1`. La base se crea en `data/tienda.db`. Las pruebas usan bases temporales independientes:
 
 ```bash
 python -m unittest discover -v
 ```
 
-Las pruebas cubren la lógica, decimales, entradas inválidas y respuestas HTTP de los dos formularios usando el cliente de pruebas de Flask.
+## Pipeline en Jenkins
 
-## Configurar Jenkins
+Requisitos: Jenkins con plugins Pipeline y Git; un agente Linux con Docker, Docker Compose y permisos para usar el daemon; acceso a GitHub y PyPI; y puerto 5000 libre en el host del agente. El despliegue se ejecuta en ese host, no en un servidor externo. La base SQLite vive en el volumen Docker `tienda_datos`; preparar la base crea la tabla si no existe y no borra los productos.
 
-1. Use Jenkins con plugins Pipeline y Git, y un agente Linux con Git, Python 3, `venv` y acceso a PyPI.
-2. Cree una tarea **Pipeline**. En **Pipeline script from SCM**, elija Git, indique la URL del repositorio y la rama `main`; use credenciales si corresponde.
-3. Deje `Jenkinsfile` como ruta y ejecute **Construir ahora** una primera vez.
-4. Revise la salida de consola y las etapas: código, dependencias, validación, pruebas y empaquetado. Una ejecución exitosa guarda `aplicacion.zip` como artefacto.
+1. Cree una tarea **Pipeline** y seleccione **Pipeline script from SCM** → Git.
+2. Configure `https://github.com/diegopolancolozano/JenkinsExample.git`, la rama `main` y la ruta `Jenkinsfile`.
+3. Ejecute **Construir ahora** una primera vez. El archivo configura `pollSCM` para consultar cambios aproximadamente cada dos minutos; un webhook accesible es otra opción.
+4. Revise las etapas: obtener código, construir imagen, pruebas, preparar la base, desplegar y verificar que responde.
+5. Acceda a `http://IP_DEL_AGENTE:5000` desde un equipo con conectividad. Si Jenkins corre en un contenedor, `localhost` dentro de Jenkins no es necesariamente el host.
 
-El archivo consulta Git aproximadamente cada dos minutos con `pollSCM`; la primera ejecución manual carga ese disparador. Como alternativa, configure un webhook de GitHub si Jenkins es accesible desde allí. El pipeline usa `sh` y `.venv/bin/python`, por lo que un agente Windows requiere adaptar los comandos.
+La primera ejecución puede tardar por la descarga de la imagen y dependencias. Cada ejecución reconstruye la imagen, realiza las pruebas con una base temporal y, solo si pasan, prepara la base persistente y actualiza la aplicación. La comprobación final hace una solicitud HTTP desde el contenedor.
 
 ## Demostración
 
-1. Muestre la aplicación en el navegador y pruebe `2.5 + 3` y `Anita lava la tina`.
-2. Ejecute el pipeline y muestre las pruebas y el ZIP archivado.
-3. Cambie temporalmente la suma para introducir un error, haga commit y push y observe que falla la etapa de pruebas.
-4. Corrija el error, suba otro commit y muestre una ejecución exitosa. Compruebe cada resultado en Jenkins.
+1. Muestre el repositorio y explique `app.py`, `test_app.py`, `Dockerfile`, `compose.yaml` y `Jenkinsfile`.
+2. Ejecute el pipeline y muestre las etapas. Abra la tienda, agregue un producto y actualice para demostrar la persistencia.
+3. Introduzca un error controlado en la validación, haga commit y push y observe que fallan las pruebas antes del despliegue. Corrija el error y suba otro commit.
+4. Tras el nuevo despliegue, compruebe que el producto anterior sigue en el catálogo.
 
-El ZIP contiene el código, la plantilla y las instrucciones para su ejecución; es un artefacto de entrega, no un despliegue. La instalación y ejecución de Jenkins no están incluidas en el repositorio.
+SQLite es apropiada para esta demostración de una sola aplicación. El servidor de desarrollo de Flask y el despliegue local no son una configuración de producción.

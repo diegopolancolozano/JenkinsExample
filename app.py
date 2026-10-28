@@ -1,51 +1,70 @@
-"""Aplicación Flask para demostrar integración y entrega continua."""
+"""Tienda pequeña con persistencia SQLite para demostrar Jenkins."""
+import os
+import sqlite3
 from decimal import Decimal, InvalidOperation
-import unicodedata
-from flask import Flask, render_template, request
+from pathlib import Path
+from flask import Flask, g, redirect, render_template, request, url_for
 
 app = Flask(__name__)
+app.config['DATABASE'] = os.environ.get('DATABASE_PATH', 'data/tienda.db')
 
 
-def sumar(primero: str, segundo: str) -> Decimal:
+def conexion():
+    if 'db' not in g:
+        ruta = Path(app.config['DATABASE'])
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        g.db = sqlite3.connect(str(ruta))
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+@app.teardown_appcontext
+def cerrar_conexion(_error):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+
+def inicializar_bd():
+    db = conexion()
+    db.execute('CREATE TABLE IF NOT EXISTS productos (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, precio_centavos INTEGER NOT NULL CHECK(precio_centavos > 0))')
+    db.commit()
+
+
+def validar_producto(nombre, precio):
+    nombre = nombre.strip()
+    if not nombre or len(nombre) > 100:
+        raise ValueError('El nombre debe contener entre 1 y 100 caracteres.')
     try:
-        a, b = Decimal(primero.strip()), Decimal(segundo.strip())
-    except (InvalidOperation, AttributeError, ValueError) as exc:
-        raise ValueError("Ingresa dos números válidos.") from exc
-    if not a.is_finite() or not b.is_finite():
-        raise ValueError("Ingresa dos números finitos.")
-    return a + b
+        cantidad = Decimal(precio.strip())
+        if not cantidad.is_finite() or cantidad <= 0 or cantidad > Decimal('9999999.99') or cantidad.as_tuple().exponent < -2:
+            raise ValueError('El precio debe ser positivo y tener máximo dos decimales.')
+        centavos = int(cantidad * 100)
+    except (InvalidOperation, AttributeError):
+        raise ValueError('Ingresa un precio válido.') from None
+    return nombre, centavos
 
 
-def es_palindromo(texto: str) -> bool:
-    caracteres = unicodedata.normalize("NFD", texto.casefold())
-    limpio = "".join(c for c in caracteres if c.isalnum())
-    if not limpio:
-        raise ValueError("Escribe una palabra o frase con letras o números.")
-    return limpio == limpio[::-1]
-
-
-@app.get("/")
+@app.get('/')
 def inicio():
-    return render_template("index.html")
+    productos = conexion().execute('SELECT id, nombre, precio_centavos FROM productos ORDER BY id DESC').fetchall()
+    return render_template('index.html', productos=productos)
 
 
-@app.post("/sumar")
-def calcular_suma():
+@app.post('/productos')
+def agregar_producto():
     try:
-        resultado = sumar(request.form.get("primero", ""), request.form.get("segundo", ""))
-        return render_template("index.html", suma=resultado)
+        nombre, precio = validar_producto(request.form.get('nombre', ''), request.form.get('precio', ''))
     except ValueError as exc:
-        return render_template("index.html", error_suma=str(exc)), 400
+        productos = conexion().execute('SELECT id, nombre, precio_centavos FROM productos ORDER BY id DESC').fetchall()
+        return render_template('index.html', productos=productos, error=str(exc)), 400
+    db = conexion()
+    db.execute('INSERT INTO productos (nombre, precio_centavos) VALUES (?, ?)', (nombre, precio))
+    db.commit()
+    return redirect(url_for('inicio'))
 
 
-@app.post("/palindromo")
-def comprobar_palindromo():
-    try:
-        resultado = es_palindromo(request.form.get("texto", ""))
-        return render_template("index.html", palindromo=resultado)
-    except ValueError as exc:
-        return render_template("index.html", error_palindromo=str(exc)), 400
-
-
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000)
+if __name__ == '__main__':
+    with app.app_context():
+        inicializar_bd()
+    app.run(host='0.0.0.0', port=5000)

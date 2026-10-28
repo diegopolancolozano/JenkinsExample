@@ -1,35 +1,7 @@
 <!doctype html>
 <html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Laboratorio Jenkins</title>
-  <style>
-    body{font-family:system-ui,sans-serif;max-width:780px;margin:3rem auto;padding:0 1rem;color:#202e3b;background:#f5f7fa}
-    h1{margin-bottom:.3rem} .sub{color:#526675} section{background:white;border:1px solid #dce3e9;border-radius:10px;padding:1.4rem;margin:1rem 0}
-    input{font:inherit;padding:.6rem;border:1px solid #aabac5;border-radius:5px;margin:.25rem 0;width:min(100%,270px);box-sizing:border-box}
-    label{display:block;margin-top:.5rem} button{font:inherit;background:#195a7c;color:white;border:0;border-radius:5px;padding:.65rem 1rem;margin-top:.8rem;cursor:pointer}
-    .resultado{padding:.8rem;background:#e8f5ee;border-radius:5px} .error{color:#9a2424}
-  </style>
-</head>
-<body>
-  <h1>Laboratorio Jenkins</h1><p class="sub">Dos herramientas pequeñas para demostrar un pipeline de CI/CD.</p>
-  <section><h2>Sumar dos números</h2>
-    <form method="post" action="{{ url_for('calcular_suma') }}">
-      <label for="primero">Primer número</label><input id="primero" name="primero" type="number" step="any" required>
-      <label for="segundo">Segundo número</label><input id="segundo" name="segundo" type="number" step="any" required>
-      <div><button type="submit">Sumar</button></div>
-    </form>
-    {% if suma is defined %}<p class="resultado">Resultado: {{ suma }}</p>{% endif %}
-    {% if error_suma %}<p class="error" role="alert">{{ error_suma }}</p>{% endif %}
-  </section>
-  <section><h2>Comprobar palíndromo</h2><p>Ignora espacios, signos y tildes.</p>
-    <form method="post" action="{{ url_for('comprobar_palindromo') }}">
-      <label for="texto">Palabra o frase</label><input id="texto" name="texto" type="text" required>
-      <div><button type="submit">Comprobar</button></div>
-    </form>
-    {% if palindromo is defined %}<p class="resultado">{{ 'Es un palíndromo' if palindromo else 'No es un palíndromo' }}</p>{% endif %}
-    {% if error_palindromo %}<p class="error" role="alert">{{ error_palindromo }}</p>{% endif %}
-  </section>
-</body>
-</html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tienda pequeña</title>
+<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:3rem auto;padding:0 1rem;color:#23313a;background:#f5f7f8}section{background:#fff;border:1px solid #d8e0e4;border-radius:10px;padding:1.4rem;margin:1rem 0}label{display:block;margin-top:.7rem}input{font:inherit;padding:.55rem;width:min(100%,300px);box-sizing:border-box;border:1px solid #9eaeb6;border-radius:5px}button{font:inherit;background:#195a7c;color:white;border:0;border-radius:5px;padding:.65rem 1rem;margin-top:1rem}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #e3e8eb;padding:.7rem}.error{color:#a22323}</style></head>
+<body><h1>Tienda pequeña</h1><p>Catálogo de productos con Flask y SQLite</p>
+<section><h2>Agregar producto</h2><form method="post" action="{{ url_for('agregar_producto') }}"><label for="nombre">Nombre</label><input id="nombre" name="nombre" maxlength="100" required><label for="precio">Precio</label><input id="precio" name="precio" type="number" min="0.01" max="9999999.99" step="0.01" required><div><button type="submit">Guardar producto</button></div></form>{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}</section>
+<section><h2>Productos</h2>{% if productos %}<table><thead><tr><th>Nombre</th><th>Precio</th></tr></thead><tbody>{% for producto in productos %}<tr><td>{{ producto['nombre'] }}</td><td>{{ '%.2f' | format(producto['precio_centavos'] / 100) }}</td></tr>{% endfor %}</tbody></table>{% else %}<p>Aún no hay productos.</p>{% endif %}</section></body></html>

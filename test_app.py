@@ -1,79 +1,73 @@
+import tempfile
 import unittest
-from decimal import Decimal
-from app import app, es_palindromo, sumar
+from pathlib import Path
+from app import app, conexion, inicializar_bd, validar_producto
 
 
-class LogicaTests(unittest.TestCase):
-    def test_suma_enteros(self):
-        self.assertEqual(sumar("2", "3"), Decimal("5"))
-
-    def test_suma_decimales_exactos(self):
-        self.assertEqual(sumar("0.1", "0.2"), Decimal("0.3"))
-
-    def test_suma_negativos_y_espacios(self):
-        self.assertEqual(sumar(" -4 ", " 2 "), Decimal("-2"))
-
-    def test_suma_rechaza_entrada_invalida(self):
-        for valor in ("", "abc", "NaN", "Infinity"):
-            with self.subTest(valor=valor), self.assertRaises(ValueError):
-                sumar(valor, "2")
-
-    def test_palindromo_ignora_tildes_signos_y_mayusculas(self):
-        self.assertTrue(es_palindromo("Anita lava la tina"))
-        self.assertTrue(es_palindromo("¡Anita, lava la tina!"))
-        self.assertTrue(es_palindromo("Ána"))
-
-    def test_no_palindromo(self):
-        self.assertFalse(es_palindromo("Jenkins"))
-
-    def test_palindromo_vacio(self):
-        for valor in ("", "  ", "!!!"):
-            with self.subTest(valor=valor), self.assertRaises(ValueError):
-                es_palindromo(valor)
-
-
-class RutasTests(unittest.TestCase):
+class TiendaTests(unittest.TestCase):
     def setUp(self):
-        app.config.update(TESTING=True)
+        self.temp = tempfile.TemporaryDirectory()
+        app.config.update(TESTING=True, DATABASE=str(Path(self.temp.name) / 'prueba.db'))
+        with app.app_context():
+            inicializar_bd()
         self.client = app.test_client()
 
-    def test_inicio_muestra_ambos_formularios(self):
-        respuesta = self.client.get("/")
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("Sumar dos números", respuesta.get_data(as_text=True))
-        self.assertIn("Comprobar palíndromo", respuesta.get_data(as_text=True))
+    def tearDown(self):
+        self.temp.cleanup()
 
-    def test_suma_correcta(self):
-        respuesta = self.client.post("/sumar", data={"primero": "2.5", "segundo": "3"})
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("Resultado: 5.5", respuesta.get_data(as_text=True))
+    def test_inicio_vacio(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Aún no hay productos', response.get_data(as_text=True))
 
-    def test_suma_invalida(self):
-        respuesta = self.client.post("/sumar", data={"primero": "abc", "segundo": "3"})
-        self.assertEqual(respuesta.status_code, 400)
-        self.assertIn("números válidos", respuesta.get_data(as_text=True))
+    def test_agregar_y_listar(self):
+        response = self.client.post('/productos', data={'nombre': 'Camiseta', 'precio': '12.50'}, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Camiseta', response.get_data(as_text=True))
+        self.assertIn('12.50', response.get_data(as_text=True))
 
-    def test_suma_campos_ausentes(self):
-        self.assertEqual(self.client.post("/sumar", data={}).status_code, 400)
+    def test_guarda_centavos_exactos(self):
+        self.client.post('/productos', data={'nombre': 'Lapiz', 'precio': '0.10'})
+        with app.app_context():
+            self.assertEqual(conexion().execute('SELECT precio_centavos FROM productos').fetchone()[0], 10)
 
-    def test_palindromo_correcto(self):
-        respuesta = self.client.post("/palindromo", data={"texto": "Anita lava la tina"})
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("Es un palíndromo", respuesta.get_data(as_text=True))
+    def test_datos_persisten_en_otra_conexion(self):
+        self.client.post('/productos', data={'nombre': 'Libro', 'precio': '10'})
+        with app.app_context():
+            self.assertEqual(conexion().execute('SELECT nombre FROM productos').fetchone()[0], 'Libro')
 
-    def test_palindromo_negativo(self):
-        respuesta = self.client.post("/palindromo", data={"texto": "Jenkins"})
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("No es un palíndromo", respuesta.get_data(as_text=True))
+    def test_inicializacion_no_borra_productos(self):
+        self.client.post('/productos', data={'nombre': 'Libro', 'precio': '10'})
+        with app.app_context():
+            inicializar_bd()
+            self.assertEqual(conexion().execute('SELECT count(*) FROM productos').fetchone()[0], 1)
 
-    def test_palindromo_sin_contenido(self):
-        respuesta = self.client.post("/palindromo", data={"texto": "!!!"})
-        self.assertEqual(respuesta.status_code, 400)
+    def test_nombre_vacio(self):
+        response = self.client.post('/productos', data={'nombre': '  ', 'precio': '5'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_precio_invalido(self):
+        for precio in ('', 'abc', '0', '-1', 'NaN', 'Infinity', '1.234', '10000000'):
+            with self.subTest(precio=precio):
+                response = self.client.post('/productos', data={'nombre': 'Libro', 'precio': precio})
+                self.assertEqual(response.status_code, 400)
+        with app.app_context():
+            self.assertEqual(conexion().execute('SELECT count(*) FROM productos').fetchone()[0], 0)
+
+    def test_recorta_nombre(self):
+        self.assertEqual(validar_producto('  Libro  ', '1.20'), ('Libro', 120))
+
+    def test_nombre_muy_largo(self):
+        self.assertEqual(self.client.post('/productos', data={'nombre': 'x' * 101, 'precio': '2'}).status_code, 400)
+
+    def test_escapa_html_en_producto(self):
+        response = self.client.post('/productos', data={'nombre': '<script>', 'precio': '2'}, follow_redirects=True)
+        self.assertIn('&lt;script&gt;', response.get_data(as_text=True))
+        self.assertNotIn('<script>', response.get_data(as_text=True))
 
     def test_metodo_incorrecto(self):
-        self.assertEqual(self.client.get("/sumar").status_code, 405)
-        self.assertEqual(self.client.get("/palindromo").status_code, 405)
+        self.assertEqual(self.client.get('/productos').status_code, 405)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
