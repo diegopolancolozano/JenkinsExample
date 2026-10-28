@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laboratorio Jenkins</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:780px;margin:3rem auto;padding:0 1rem;color:#202e3b;background:#f5f7fa}
+    h1{margin-bottom:.3rem} .sub{color:#526675} section{background:white;border:1px solid #dce3e9;border-radius:10px;padding:1.4rem;margin:1rem 0}
+    input{font:inherit;padding:.6rem;border:1px solid #aabac5;border-radius:5px;margin:.25rem 0;width:min(100%,270px);box-sizing:border-box}
+    label{display:block;margin-top:.5rem} button{font:inherit;background:#195a7c;color:white;border:0;border-radius:5px;padding:.65rem 1rem;margin-top:.8rem;cursor:pointer}
+    .resultado{padding:.8rem;background:#e8f5ee;border-radius:5px} .error{color:#9a2424}
+  </style>
+</head>
+<body>
+  <h1>Laboratorio Jenkins</h1><p class="sub">Dos herramientas pequeñas para demostrar un pipeline de CI/CD.</p>
+  <section><h2>Sumar dos números</h2>
+    <form method="post" action="{{ url_for('calcular_suma') }}">
+      <label for="primero">Primer número</label><input id="primero" name="primero" type="number" step="any" required>
+      <label for="segundo">Segundo número</label><input id="segundo" name="segundo" type="number" step="any" required>
+      <div><button type="submit">Sumar</button></div>
+    </form>
+    {% if suma is defined %}<p class="resultado">Resultado: {{ suma }}</p>{% endif %}
+    {% if error_suma %}<p class="error" role="alert">{{ error_suma }}</p>{% endif %}
+  </section>
+  <section><h2>Comprobar palíndromo</h2><p>Ignora espacios, signos y tildes.</p>
+    <form method="post" action="{{ url_for('comprobar_palindromo') }}">
+      <label for="texto">Palabra o frase</label><input id="texto" name="texto" type="text" required>
+      <div><button type="submit">Comprobar</button></div>
+    </form>
+    {% if palindromo is defined %}<p class="resultado">{{ 'Es un palíndromo' if palindromo else 'No es un palíndromo' }}</p>{% endif %}
+    {% if error_palindromo %}<p class="error" role="alert">{{ error_palindromo }}</p>{% endif %}
+  </section>
+</body>
+</html>

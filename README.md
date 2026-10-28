@@ -1,36 +1,42 @@
 # JenkinsExample
 
-Ejemplo sencillo de integración continua y entrega de un artefacto con Jenkins, Git y Python. No realiza un despliegue automático a un servidor.
+Aplicación web Flask para demostrar CI y entrega de un artefacto con Jenkins. Incluye dos funciones: sumar números y comprobar si una frase es un palíndromo. La aplicación no guarda información y el pipeline no despliega automáticamente a un servidor.
 
-## Requisitos
+## Ejecutar la aplicación
 
-- Jenkins con un agente Linux que tenga Git y Python 3 disponibles.
-- Plugins Pipeline y Git instalados y configurados en Jenkins.
-- Un repositorio Git accesible desde Jenkins. Este proyecto usa `Jenkinsfile` en su raíz.
-
-## Probar localmente
+Se necesita Python 3 con soporte para `venv` y acceso a PyPI para instalar Flask.
 
 ```bash
-python3 app.py
-python3 -m unittest discover -v
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python app.py
 ```
 
-En Windows se puede sustituir `python3` por `py`.
+Abra `http://127.0.0.1:5000`. En Windows, cree el entorno con `py -m venv .venv` y actívelo con `.venv\Scripts\Activate.ps1`.
 
-## Configurar el pipeline
+## Ejecutar pruebas
 
-1. Suba estos archivos al repositorio y anote la rama usada.
-2. En Jenkins seleccione **Nueva tarea → Pipeline**.
-3. En **Pipeline**, seleccione **Pipeline script from SCM**, elija Git y escriba la URL y la rama del repositorio. Use credenciales si el repositorio es privado.
-4. Deje `Jenkinsfile` como ruta del script y ejecute **Construir ahora** una primera vez.
-5. Consulte las etapas y la salida de consola. Tras pasar las pruebas, Jenkins conserva `aplicacion.zip` como artefacto de la ejecución.
+```bash
+python -m unittest discover -v
+```
 
-El `Jenkinsfile` consulta Git aproximadamente cada dos minutos mediante `pollSCM`; el primer arranque manual carga esta configuración. Para recibir cambios más rápido puede configurarse un webhook accesible desde GitHub; esa opción depende de la conectividad y configuración de Jenkins. Un agente Windows necesita reemplazar los pasos `sh` por `bat` o `powershell`.
+Las pruebas cubren la lógica, decimales, entradas inválidas y respuestas HTTP de los dos formularios usando el cliente de pruebas de Flask.
 
-## Demostración de resiliencia de las pruebas
+## Configurar Jenkins
 
-Cambie temporalmente el texto devuelto por `saludo`, sin actualizar la prueba, y haga commit y push: la etapa de pruebas debe fallar y no se genera un nuevo artefacto exitoso. Restaure el texto, haga otro commit y compruebe que la ejecución vuelve a pasar. Los fallos y las ejecuciones deben verificarse en Jenkins; ejecutar las pruebas localmente no demuestra que el servidor esté configurado.
+1. Use Jenkins con plugins Pipeline y Git, y un agente Linux con Git, Python 3, `venv` y acceso a PyPI.
+2. Cree una tarea **Pipeline**. En **Pipeline script from SCM**, elija Git, indique la URL del repositorio y la rama `main`; use credenciales si corresponde.
+3. Deje `Jenkinsfile` como ruta y ejecute **Construir ahora** una primera vez.
+4. Revise la salida de consola y las etapas: código, dependencias, validación, pruebas y empaquetado. Una ejecución exitosa guarda `aplicacion.zip` como artefacto.
 
-## Flujo
+El archivo consulta Git aproximadamente cada dos minutos con `pollSCM`; la primera ejecución manual carga ese disparador. Como alternativa, configure un webhook de GitHub si Jenkins es accesible desde allí. El pipeline usa `sh` y `.venv/bin/python`, por lo que un agente Windows requiere adaptar los comandos.
 
-Git → Jenkins obtiene el código → valida Python → ejecuta pruebas → guarda el ZIP. El ZIP es una entrega para revisión o despliegue posterior; no equivale a desplegar la aplicación.
+## Demostración
+
+1. Muestre la aplicación en el navegador y pruebe `2.5 + 3` y `Anita lava la tina`.
+2. Ejecute el pipeline y muestre las pruebas y el ZIP archivado.
+3. Cambie temporalmente la suma para introducir un error, haga commit y push y observe que falla la etapa de pruebas.
+4. Corrija el error, suba otro commit y muestre una ejecución exitosa. Compruebe cada resultado en Jenkins.
+
+El ZIP contiene el código, la plantilla y las instrucciones para su ejecución; es un artefacto de entrega, no un despliegue. La instalación y ejecución de Jenkins no están incluidas en el repositorio.
