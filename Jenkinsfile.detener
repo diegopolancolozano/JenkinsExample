@@ -1,0 +1,15 @@
+pipeline {
+    agent any
+    options { disableConcurrentBuilds() }
+    stages {
+        stage('Obtener configuración') {
+            steps { checkout scm }
+        }
+        stage('Detener tienda') {
+            steps {
+                sh 'docker compose stop tienda'
+                echo 'La tienda está detenida. El volumen de SQLite se conserva.'
+            }
+        }
+    }
+}

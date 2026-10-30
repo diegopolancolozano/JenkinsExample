@@ -100,3 +100,16 @@ Para detener Jenkins sin eliminar su configuración: `docker compose -f jenkins-
 ### Rama para la demostración
 
 En la configuración de la tarea, escriba `*/main` en **Branch Specifier**: la rama predeterminada de GitHub puede ser distinta y el pipeline actualizado se encuentra en `main`. Tras la primera ejecución, abra **Console Output** para revisar las pruebas, la preparación de SQLite y el resultado del despliegue. Abra http://localhost:5000, agregue un producto y vuelva a ejecutar el pipeline para comprobar que permanece en el volumen. La etapa de base de datos prepara un archivo SQLite; no crea un servidor independiente.
+
+## Pipeline para detener la tienda
+
+El archivo `Jenkinsfile.detener` define una tarea manual que detiene el servicio `tienda` con `docker compose stop tienda`. Conserva el contenedor, el volumen y los productos guardados en SQLite. No detiene Jenkins y no tiene un disparador por cambios de Git.
+
+Para configurarla:
+
+1. Cree una segunda tarea de tipo **Pipeline**, por ejemplo `detener-tienda`.
+2. En **Pipeline script from SCM → Git**, indique `https://github.com/diegopolancolozano/JenkinsExample.git` y la rama `*/main`.
+3. En **Script Path**, escriba `Jenkinsfile.detener` y guarde.
+4. Pulse **Construir ahora** cuando quiera detener la tienda. Ejecute nuevamente la tarea principal para levantarla y comprobar que los productos siguen guardados.
+
+Use el mismo agente Docker que ejecuta el despliegue y espere a que termine la tarea principal antes de detener la tienda. La tarea principal consulta cambios en Git y puede volver a desplegar la tienda después de un push.
