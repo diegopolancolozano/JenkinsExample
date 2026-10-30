@@ -96,3 +96,7 @@ docker compose -f jenkins-compose.yaml exec jenkins cat /var/jenkins_home/secret
 Instale los plugins sugeridos y cree su usuario. No comparta la contraseña. Después cree el pipeline con los pasos anteriores; el primer build debe iniciarse manualmente. `jenkins_home` conserva la configuración. La tienda usa el proyecto Compose fijo `jenkinsexample`, para que Jenkins gestione la misma tienda y el mismo volumen que el comando ejecutado desde esta carpeta.
 
 Para detener Jenkins sin eliminar su configuración: `docker compose -f jenkins-compose.yaml down`. No elimine volúmenes si necesita conservar la configuración o los productos.
+
+### Rama para la demostración
+
+En la configuración de la tarea, escriba `*/main` en **Branch Specifier**: la rama predeterminada de GitHub puede ser distinta y el pipeline actualizado se encuentra en `main`. Tras la primera ejecución, abra **Console Output** para revisar las pruebas, la preparación de SQLite y el resultado del despliegue. Abra http://localhost:5000, agregue un producto y vuelva a ejecutar el pipeline para comprobar que permanece en el volumen. La etapa de base de datos prepara un archivo SQLite; no crea un servidor independiente.
