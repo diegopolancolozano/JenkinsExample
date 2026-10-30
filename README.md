@@ -77,3 +77,22 @@ Cuando termine, abra `http://IP_DEL_AGENTE:5000` (o `http://localhost:5000` si e
 ## Notas
 
 SQLite es suficiente para una aplicación de demostración con una sola instancia. El servidor de desarrollo de Flask no está pensado para producción.
+
+## Iniciar Jenkins en Docker Desktop
+
+La configuración `jenkins-compose.yaml` inicia un controlador Jenkins de laboratorio con Docker CLI y Compose. Necesita Docker Desktop funcionando, acceso a Internet y el puerto 8080 libre. El socket Docker se comparte con Jenkins y el contenedor corre como root: úselo solo en un entorno local de confianza, ya que los trabajos obtienen control sobre Docker del host.
+
+```powershell
+docker compose -f jenkins-compose.yaml up -d --build
+docker compose -f jenkins-compose.yaml logs --tail=40 jenkins
+```
+
+Abra http://localhost:8080. En el primer inicio obtenga la contraseña en su propia terminal con:
+
+```powershell
+docker compose -f jenkins-compose.yaml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Instale los plugins sugeridos y cree su usuario. No comparta la contraseña. Después cree el pipeline con los pasos anteriores; el primer build debe iniciarse manualmente. `jenkins_home` conserva la configuración. La tienda usa el proyecto Compose fijo `jenkinsexample`, para que Jenkins gestione la misma tienda y el mismo volumen que el comando ejecutado desde esta carpeta.
+
+Para detener Jenkins sin eliminar su configuración: `docker compose -f jenkins-compose.yaml down`. No elimine volúmenes si necesita conservar la configuración o los productos.
